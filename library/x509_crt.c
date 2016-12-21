@@ -504,7 +504,10 @@ static int x509_get_subject_alt_name( unsigned char **p,
             if( ( ret = mbedtls_asn1_get_tag( p, end, &name_len,
                     MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE ) ) != 0 )
                 return( MBEDTLS_ERR_X509_INVALID_EXTENSIONS + ret );
-            if( ( ret = mbedtls_x509_get_name( p, *p + name_len, &general_name.directory_name ) ) != 0 )
+            general_name.directory_name = mbedtls_calloc( 1, sizeof( mbedtls_x509_name ) );
+            if ( general_name.directory_name == NULL )
+                return( MBEDTLS_ERR_X509_ALLOC_FAILED );
+            if( ( ret = mbedtls_x509_get_name( p, *p + name_len, general_name.directory_name ) ) != 0 )
                 return( MBEDTLS_ERR_X509_INVALID_EXTENSIONS + ret );
             break;
         default:
@@ -527,7 +530,7 @@ static int x509_get_subject_alt_name( unsigned char **p,
         }
 
         memcpy( &cur->general_name, &general_name, sizeof( general_name ) );
-#else 
+#else
         /* Skip everything but DNS name */
         if( tag != ( MBEDTLS_ASN1_CONTEXT_SPECIFIC | 2 ) )
         {
@@ -1327,7 +1330,7 @@ static int x509_info_subject_alt_name( char **buf, size_t *size,
             for( i = 0; i < LABEL_LEN( x509_directory_name_label ); i++ )
                 *p++ = x509_directory_name_label[i];
 
-            ret = mbedtls_x509_dn_gets( p, n, &cur->general_name.directory_name );
+            ret = mbedtls_x509_dn_gets( p, n, cur->general_name.directory_name );
             if( ret < 0 || ( (size_t) ret ) >= n )
             {
                 *p = '\0';
@@ -2533,6 +2536,17 @@ void mbedtls_x509_crt_free( mbedtls_x509_crt *crt )
         }
 
 #if defined(MBEDTLS_X509_EXPANDED_SUBJECT_ALT_NAME_SUPPORT)
+        if ( cert_cur->subject_alt_names.general_name.name_type == MBEDTLS_X509_GENERALNAME_DIRECTORYNAME )
+        {
+            name_cur = cert_cur->subject_alt_names.general_name.directory_name;
+            while ( name_cur != NULL )
+            {
+                name_prv = name_cur;
+                name_cur = name_cur->next;
+                mbedtls_zeroize( name_prv, sizeof( mbedtls_x509_name ) );
+                mbedtls_free( name_prv );
+            }
+        }
         san_cur = cert_cur->subject_alt_names.next;
         while ( san_cur != NULL )
         {
@@ -2540,12 +2554,12 @@ void mbedtls_x509_crt_free( mbedtls_x509_crt *crt )
             san_cur = san_cur->next;
             if ( san_prv->general_name.name_type == MBEDTLS_X509_GENERALNAME_DIRECTORYNAME )
             {
-                name_cur = &san_prv->general_name.directory_name;
+                name_cur = san_prv->general_name.directory_name;
                 while ( name_cur != NULL )
                 {
                     name_prv = name_cur;
                     name_cur = name_cur->next;
-                    mbedtls_zeroize( name_prv, sizeof ( mbedtls_x509_name ));
+                    mbedtls_zeroize( name_prv, sizeof( mbedtls_x509_name ) );
                     mbedtls_free( name_prv );
                 }
             }

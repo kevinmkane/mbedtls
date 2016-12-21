@@ -45,7 +45,7 @@ extern "C" {
  * \name Structures and functions for parsing and writing X.509 certificates
  * \{
  */
- 
+
 #if defined(MBEDTLS_X509_EXPANDED_SUBJECT_ALT_NAME_SUPPORT)
 typedef enum
 {
@@ -60,7 +60,7 @@ typedef struct mbedtls_x509_general_name
     union
     {
         mbedtls_x509_buf dns_name;
-        mbedtls_x509_name directory_name;
+        mbedtls_x509_name *directory_name;
     };
 } mbedtls_x509_general_name;
 
@@ -621,6 +621,21 @@ int mbedtls_x509write_crt_set_key_usage( mbedtls_x509write_cert *ctx,
  */
 int mbedtls_x509write_crt_set_ns_cert_type( mbedtls_x509write_cert *ctx,
                                     unsigned char ns_cert_type );
+
+
+#if defined(MBEDTLS_X509_EXPANDED_SUBJECT_ALT_NAME_SUPPORT)
+/**
+ * \brief           Set the subject alternative name extension
+ *
+ * \param ctx       CRT context to use
+ * \param names     subject alternative names. For each dNSName element, the tag field of the dns_name
+ *                  member does not need to be set and will be ignored.
+ *
+ * \return          0 if successful, or a specific error code
+ */
+int mbedtls_x509write_crt_set_subject_alt_names( mbedtls_x509write_cert *ctx,
+                                                 const mbedtls_x509_general_names *names );
+#endif /* MBEDTLS_X509_EXPANDED_SUBJECT_ALT_NAME_SUPPORT */
 
 /**
  * \brief           Free the contents of a CRT write context
